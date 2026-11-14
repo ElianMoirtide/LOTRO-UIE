@@ -1,0 +1,19 @@
+# Build directories
+build/
+out/
+cmake-build-*/
+.vs/
+
+# Compiled binaries & debug symbols
+*.dll
+*.exe
+*.lib
+*.exp
+*.pdb
+*.ilk
+*.obj
+*.idb
+
+# Runtime logs & captures
+lotro_uie.log
+lotro_uie_captures/
