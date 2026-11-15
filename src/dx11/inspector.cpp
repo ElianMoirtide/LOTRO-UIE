@@ -664,7 +664,7 @@ void Inspector::OnFrameEnd(ID3D11Device* device, ID3D11DeviceContext* immediateC
     // 2. Write summary.txt
     {
         std::ofstream sum(capDir / "summary.txt");
-        sum << "LOTRO-UIE v0.1.1 DX11 Pipeline Capture Summary\n";
+        sum << "LOTRO-UIE v0.6 DX11 Pipeline Capture Summary\n";
         sum << "==============================================\n";
         sum << "Frame Index     : " << capturedFrameIdx << "\n";
         sum << "SwapChain       : " << swapInfo.width << " x " << swapInfo.height

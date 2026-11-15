@@ -1521,7 +1521,7 @@ void UiEnhancer::OnDeviceCreated(ID3D11Device* device) {
     cbDirty_.store(false, std::memory_order_release);
     ready_ = true;
     RefreshFastPointersLocked();
-    UIE_LOG_INFO("UiEnhancer v0.5 initialized shaders on device %p (sharpness=%.2f, edgeAniso=%.2f, mapMode=%s)",
+    UIE_LOG_INFO("UiEnhancer v0.6 initialized shaders on device %p (sharpness=%.2f, edgeAniso=%.2f, mapMode=%s)",
                  static_cast<void*>(device), sharpness_, edgeAniso_,
                  mapMode_.load(std::memory_order_relaxed) ? "true" : "false");
 }

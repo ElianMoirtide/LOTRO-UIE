@@ -470,7 +470,7 @@ void DebugOverlay::Render(
     if (uieStats.hoveredTexId != 0) {
         std::snprintf(
             line1, sizeof(line1),
-            "LOTRO-UIE v0.5 | %ux%u | Draws:%u (UI:%u, SR:%u, Map:%u) | Hover:0x%016llX(%ux%u)",
+            "LOTRO-UIE v0.6 | %ux%u | Draws:%u (UI:%u, SR:%u, Map:%u) | Hover:0x%016llX(%ux%u)",
             static_cast<unsigned>(screenW),
             static_cast<unsigned>(screenH),
             stats.lastFrameDraws,
@@ -484,7 +484,7 @@ void DebugOverlay::Render(
     } else {
         std::snprintf(
             line1, sizeof(line1),
-            "LOTRO-UIE v0.5 | %ux%u | Draws:%u (UI:%u, SR:%u, Map:%u, Scale:%u/%u, HD:%u)",
+            "LOTRO-UIE v0.6 | %ux%u | Draws:%u (UI:%u, SR:%u, Map:%u, Scale:%u/%u, HD:%u)",
             static_cast<unsigned>(screenW),
             static_cast<unsigned>(screenH),
             stats.lastFrameDraws,

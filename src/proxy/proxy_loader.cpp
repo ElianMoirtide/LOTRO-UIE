@@ -91,7 +91,7 @@ static BOOL CALLBACK InitOnceCallback(PINIT_ONCE, PVOID, PVOID*) {
         }
 
         UIE_LOG_INFO(
-            "LOTRO-UIE v0.4 initialized (mode=%s, enabled=%s)",
+            "LOTRO-UIE v0.6 initialized (mode=%s, enabled=%s)",
             g_runtime.kind == ProxyKind::D3D11 ? "d3d11.dll" : "dxgi.dll",
             g_runtime.config.enabled ? "true" : "false"
         );

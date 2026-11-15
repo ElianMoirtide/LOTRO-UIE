@@ -1343,7 +1343,7 @@ int wmain(int argc, wchar_t** argv) {
                 ctx->Unmap(mapOutStagingEnh, 0);
                 ctx->Unmap(mapOutStagingBase, 0);
 
-                std::printf("UIE v0.5 check: worldFxDelta=%llu srgbSlope(%d vs %d) offRtSlope(%d vs %d) scale(%d,%d,%d) bc3(%d->%d slope=%d) upd(%d,%d) mapDyn(%d,%d) mapMode(ink=%d vs %d, noise=%llu vs %llu)\n",
+                std::printf("UIE v0.6 check: worldFxDelta=%llu srgbSlope(%d vs %d) offRtSlope(%d vs %d) scale(%d,%d,%d) bc3(%d->%d slope=%d) upd(%d,%d) mapDyn(%d,%d) mapMode(ink=%d vs %d, noise=%llu vs %llu)\n",
                             static_cast<unsigned long long>(worldFxDelta),
                             srgbSlopeEnh, srgbSlopeBase,
                             offRtSlopeEnh, offRtSlopeBase,
@@ -1615,7 +1615,7 @@ int wmain(int argc, wchar_t** argv) {
     }
 
     const std::string logText = readAll(workDir / L"lotro_uie.log");
-    if (logText.find("UiEnhancer v0.5 initialized shaders") == std::string::npos ||
+    if (logText.find("UiEnhancer v0.6 initialized shaders") == std::string::npos ||
         logText.find("UiEnhancer matched target UI PixelShader") == std::string::npos ||
         logText.find("UiSrCache initialized") == std::string::npos ||
         logText.find("WorldPostFx initialized") == std::string::npos ||
