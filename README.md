@@ -68,14 +68,19 @@ To avoid conflicting with LOTRO's Fellowship selection keys (`F1`–`F6`) and Sy
 
 ---
 
-## Installation (Standalone Launcher & Steam)
+## Download & Installation (Standalone Launcher & Steam)
 
+Prebuilt binaries (compiled automatically from source on GitHub Actions and verified by both DX11 smoke tests) are available without needing to build anything locally:
+
+- **Latest Release:** Download from **[GitHub Releases](https://github.com/ElianMoirtide/LOTRO-UIE/releases/latest)** (`LOTRO-UIE-*-dxgi.zip` or `LOTRO-UIE-*-d3d11.zip`, including `SHA256SUMS.txt`).
+
+### Install Steps
 1. Make sure the LOTRO Launcher is set to the **64-bit client** and in-game graphics are set to **DirectX 11**.
 2. **Recommended installation (especially for Steam + `GameOverlayRenderer64.dll`):**
-   - Copy **`dxgi.dll`** and **`lotro_uie.ini`** from `build/dist/dxgi/` into the **`x64`** subfolder of your LOTRO installation (e.g. `...\Steam\steamapps\common\Lord of the Rings Online\x64\`, alongside `lotroclient64.exe`).
+   - Extract **`dxgi.dll`** and **`lotro_uie.ini`** from `LOTRO-UIE-*-dxgi.zip` (or copy them from `build/dist/dxgi/` if building locally) into the **`x64`** subfolder of your LOTRO installation (e.g. `...\Steam\steamapps\common\Lord of the Rings Online\x64\`, alongside `lotroclient64.exe`).
    - *(Important: Place the DLL **only** inside the `x64` subfolder — **not** in the root directory next to `LotroLauncher.exe`, otherwise the Qt launcher will also try to load the proxy DLL. Remove any leftover `d3d11.dll` from `x64` when using `dxgi.dll`.)*
 3. **Alternative (without Steam Overlay):**
-   - Copy `d3d11.dll` and `lotro_uie.ini` from `build/dist/d3d11/` into the `x64` subfolder.
+   - Extract `d3d11.dll` and `lotro_uie.ini` from `LOTRO-UIE-*-d3d11.zip` (or copy them from `build/dist/d3d11/`) into the `x64` subfolder.
 
 ---
 
@@ -102,7 +107,7 @@ If a specific UI element (e.g., the tiny *Level 50* badge on the character panel
 ## Building & Testing (Visual Studio / CMake, x64)
 
 ```powershell
-cmake -S . -B build -G "Visual Studio 18 2026" -A x64
+cmake -S . -B build -A x64
 cmake --build build --config Release
 ```
 
@@ -112,3 +117,5 @@ Run the automated smoke tests (verifying DX11 proxy stability, zero-warning shad
 .\build\Release\lotro_uie_smoke_test.exe .\build\dist\d3d11\d3d11.dll
 .\build\Release\lotro_uie_smoke_test.exe --dxgi .\build\dist\dxgi\dxgi.dll
 ```
+
+Pushing a `v*` tag (or creating a new `v*` release tag in GitHub Releases) triggers [build-and-release.yml](.github/workflows/build-and-release.yml) via GitHub Actions to run both smoke tests and automatically attach versioned `.zip` packages + `SHA256SUMS.txt` to the GitHub Release.

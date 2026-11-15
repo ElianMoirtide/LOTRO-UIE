@@ -1,0 +1,101 @@
+name: Build, Test & Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build x64 Proxy DLLs & Smoke Test
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Configure CMake (x64)
+        shell: pwsh
+        run: cmake -S . -B build -A x64
+
+      - name: Build Release Binaries
+        shell: pwsh
+        run: cmake --build build --config Release
+
+      - name: Run Automated Smoke Tests (d3d11 & dxgi)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\build\Release\lotro_uie_smoke_test.exe .\build\dist\d3d11\d3d11.dll
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .\build\Release\lotro_uie_smoke_test.exe --dxgi .\build\dist\dxgi\dxgi.dll
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Package Clean Distribution Archives
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $ProgressPreference = 'SilentlyContinue'
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $ver = $env:GITHUB_REF_NAME
+          } else {
+            $ver = "dev-" + $env:GITHUB_SHA.Substring(0, 7)
+          }
+          "PKG_VER=$ver" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+          New-Item -ItemType Directory -Force -Path "release_stage\dxgi", "release_stage\d3d11", "release_zips" | Out-Null
+
+          Copy-Item "build\dist\dxgi\dxgi.dll" "release_stage\dxgi\dxgi.dll"
+          Copy-Item "config\lotro_uie.ini" "release_stage\dxgi\lotro_uie.ini"
+          Copy-Item "README.md" "release_stage\dxgi\README.md"
+
+          Copy-Item "build\dist\d3d11\d3d11.dll" "release_stage\d3d11\d3d11.dll"
+          Copy-Item "config\lotro_uie.ini" "release_stage\d3d11\lotro_uie.ini"
+          Copy-Item "README.md" "release_stage\d3d11\README.md"
+
+          Compress-Archive -Path "release_stage\dxgi\*" -DestinationPath "release_zips\LOTRO-UIE-$ver-dxgi.zip" -Force
+          Compress-Archive -Path "release_stage\d3d11\*" -DestinationPath "release_zips\LOTRO-UIE-$ver-d3d11.zip" -Force
+
+          Get-FileHash "release_zips\*.zip" -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLowerInvariant())  $(Split-Path $_.Path -Leaf)" } |
+            Set-Content -Path "release_zips\SHA256SUMS.txt" -Encoding ascii
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: LOTRO-UIE-${{ env.PKG_VER }}
+          path: release_zips/*
+          retention-days: 30
+
+      - name: Publish GitHub Release (on v* tags)
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tag = $env:GITHUB_REF_NAME
+          $files = @(Get-ChildItem -Path "release_zips\*" | ForEach-Object { $_.FullName })
+
+          $prevEap = $ErrorActionPreference
+          $ErrorActionPreference = 'Continue'
+          if (Test-Path variable:PSNativeCommandUseErrorActionPreference) {
+            $prevNative = $PSNativeCommandUseErrorActionPreference
+            $PSNativeCommandUseErrorActionPreference = $false
+          }
+          gh release view $tag *> $null
+          $exists = ($LASTEXITCODE -eq 0)
+          if (Test-Path variable:PSNativeCommandUseErrorActionPreference) {
+            $PSNativeCommandUseErrorActionPreference = $prevNative
+          }
+          $ErrorActionPreference = $prevEap
+
+          if ($exists) {
+            gh release upload $tag @files --clobber
+          } else {
+            gh release create $tag @files --title "LOTRO-UIE $tag" --generate-notes
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
