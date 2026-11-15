@@ -72,7 +72,7 @@ To avoid conflicting with LOTRO's Fellowship selection keys (`F1`–`F6`) and Sy
 
 Prebuilt binaries (compiled automatically from source on GitHub Actions and verified by both DX11 smoke tests) are available without needing to build anything locally:
 
-- **Latest Release:** Download from **[GitHub Releases](https://github.com/ElianMoirtide/LOTRO-UIE/releases/latest)** (`LOTRO-UIE-*-dxgi.zip` or `LOTRO-UIE-*-d3d11.zip`, including `SHA256SUMS.txt`).
+- **Latest Release:** Download from **[GitHub Releases](https://github.com/ElianMoirtide/LOTRO-UIE/releases/latest)** (`LOTRO-UIE-*-dxgi.zip` or `LOTRO-UIE-*-d3d11.zip`).
 
 ### Install Steps
 1. Make sure the LOTRO Launcher is set to the **64-bit client** and in-game graphics are set to **DirectX 11**.
@@ -118,4 +118,4 @@ Run the automated smoke tests (verifying DX11 proxy stability, zero-warning shad
 .\build\Release\lotro_uie_smoke_test.exe --dxgi .\build\dist\dxgi\dxgi.dll
 ```
 
-Pushing a `v*` tag (or creating a new `v*` release tag in GitHub Releases) triggers [build-and-release.yml](.github/workflows/build-and-release.yml) via GitHub Actions to run both smoke tests and automatically attach versioned `.zip` packages + `SHA256SUMS.txt` to the GitHub Release.
+Pushing a `v*` tag (or creating a new `v*` release tag in GitHub Releases) triggers [build-and-release.yml](.github/workflows/build-and-release.yml) via GitHub Actions to run both smoke tests and automatically attach versioned `.zip` packages to the GitHub Release.

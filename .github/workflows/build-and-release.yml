@@ -1,4 +1,5 @@
 name: Build, Test & Release
+run-name: Release ${{ github.ref_name }}
 
 on:
   push:
@@ -58,10 +59,6 @@ jobs:
 
           Compress-Archive -Path "release_stage\dxgi\*" -DestinationPath "release_zips\LOTRO-UIE-$ver-dxgi.zip" -Force
           Compress-Archive -Path "release_stage\d3d11\*" -DestinationPath "release_zips\LOTRO-UIE-$ver-d3d11.zip" -Force
-
-          Get-FileHash "release_zips\*.zip" -Algorithm SHA256 |
-            ForEach-Object { "$($_.Hash.ToLowerInvariant())  $(Split-Path $_.Path -Leaf)" } |
-            Set-Content -Path "release_zips\SHA256SUMS.txt" -Encoding ascii
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
