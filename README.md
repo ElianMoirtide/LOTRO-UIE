@@ -1,100 +1,112 @@
-# LOTRO-UIE (UI Enhanced) — v0.5
+# LOTRO-UIE (UI Enhanced) — v0.6
 
-DirectX 11 Proxy-, UI-Super-Resolution- & 3D-PostFX-Projekt für *The Lord of the Rings Online* (64-Bit Client), um verschwommene Schriften, UI-Panels, niedrig aufgelöste Karten und das 3D-Weltbild auf 1440p/4K-/HiDPI-Monitoren gezielt in der Render-Pipeline zu verbessern.
+A DirectX 11 proxy, UI super-resolution, and 3D post-processing project for *The Lord of the Rings Online* (64-bit client), designed to fix blurry fonts, tiny UI badges, low-resolution world/radar maps, and dated 2007 post-processing visuals directly inside the DX11 render pipeline on 1440p, 4K, and HiDPI displays.
 
 ---
 
-## Features in v0.5
+## Features
 
-- **2× Mini-CNN Compute Super-Resolution (`cs_5_0`) + VRAM-Cache (`Ctrl+F4`)**:
-  - Skaliert UI-Texturen, Icons, Schrift-Atlanten und **Offscreen-UI-RenderTargets** (`UpscaleUiRenderTargets = true`, z. B. Textfenster bei `Global Zoom 3.00`) in Echtzeit auf `2×` Auflösung hoch.
-  - Detail-erhaltende Architektur für kleine Glyphen (`<= 96 px` Kantenlänge): schützt dünne Buchstabenstriche, Serifen und `i`/`ä`/`ö`/`ü`-Punkte vor Ausdünnung.
-  - Flackerfreies Dynamic-Throttling und automatische Dirty-Erkennung bei `Map`, `UpdateSubresource`, `CopyResource`, `OMSetRenderTargets` und `ClearRenderTargetView`.
-- **Subpixel-UI- & Font-Reconstruction-Shader (`ps_4_0`, `F8` / `F7`)**:
-  - Kantengerichtete 12-Tap-Rekonstruktion mit adaptivem Unsharp-Masking und 4 Schärfe-Presets (`Low 0.35`, `Med 0.70`, `High 1.05`, `Ultra 1.40` via `F7`).
-  - **Map-Modus (`MapMode = true`)**: Beruhigt grobes Pergament-Korn auf hochskalierten Karten (`896×576`/`1024×768`), schützt aber gleichzeitig dünne Textstriche und halbtransparente Text-Overlays (z. B. *„Zum Wegzoomen mit …“*).
-  - **Nameplate-Schärfung (`EnhanceNameplates = true`)**: Schärft schwebende 3D-Namen/Titel (`DepthEnable=TRUE, DepthWriteMask=ZERO`), ohne 3D-Geometrie anzufassen.
-- **Interaktives In-Game Control Center (`Ctrl+F9`)**:
-  - Ein direkt in DirectX 11 gerendertes, per Maus klickbares Steuerungsmenü im Spiel: Alle Features, Schärfe-Stufen, UI-Themen, Hover-Skalierung (`-5%` / `+5%`), Clipboard-Export und das Speichern in `lotro_uie.ini` lassen sich live per Mausklick bedienen — völlig unabhängig von der restriktiven LOTRO-Lua-Sandbox und charakterübergreifend ab dem Charakterauswahl-Bildschirm verfügbar.
-- **Per-Element UI-Skalierung via Geometry Shader (`[ElementScale]`), Clipboard-Export (`Ctrl+F2`) & Live-Skalierung (`Ctrl+Bild↑`/`Ctrl+Bild↓`)**:
-  - Einzelne UI-Elemente (z. B. das kleine *„Level 50“*-Feld im Charakterfenster oder kleine Icons/Plaketten) können gezielt vergrößert werden.
-  - **1-Klick Clipboard-Export (`Ctrl+F2`)**: Bewege die Maus über ein UI-Element und drücke `Ctrl+F2` — LOTRO-UIE kopiert sofort eine fertige Konfigurationszeile (`Element_64x24_8F3A12 = 0x8F3A12C49011B2E1, +15%`) in die Windows-Zwischenablage!
-  - **Live In-Game Skalierung (`Ctrl+Bild↑` / `Ctrl+Bild↓`)**: Vergrößert oder verkleinert das UI-Element unter dem Mauszeiger sofort live im Spiel um `+5%` / `-5%` und speichert die Regel automatisch in `lotro_uie.ini`.
-- **Smart Hover-Lupe (`HoverMagnifier = true`, `ALT` gedrückt halten)**:
-  - Hältst du im Spiel `ALT` gedrückt, wird genau das kompakte UI-Quad unter dem Mauszeiger (z. B. ein kleines Buff-Icon, Tooltip-Badge oder Münz-/Stufen-Feld) per Geometry-Shader-Bounding-Box dynamisch auf `1.25×` (`+25%`) vergrößert.
-- **UI-Modernisierung (`[UiTheme]`)**:
-  - **Font Backdrop & Outline Boost (`FontOutlineBoost = 0.35`)**: Erzeugt auf halbtransparenten Buchstabenrändern einen feinen dunklen Mikro-Kontrasthof, sodass helle Schriften (Questtracker, Chat, Namen) auch vor hellem Schnee oder Himmel gestochen scharf lesbar bleiben.
-  - **Dark-Slate UI-Theme (`ThemeDarkSlate`)**: Verwandelt ausgewaschene grau-braune LOTRO-Fensterhintergründe über eine selektive Tonwertkurve in ein modernes, dunkles Schiefer-Design, während goldene Rahmen und helle Schriften leuchtend erhalten bleiben.
-  - **OLED Auto-Dim (`OledAutoDim`)**: Dimmt statische obere/untere HUD-Leisten sanft auf `72%` Deckkraft ab, solange sich der Mauszeiger im mittleren 3D-Spielfeld befindet, und blendet sie bei Annäherung der Maus sofort wieder auf `100%` ein.
+- **2× Mini-CNN Compute Super-Resolution (`cs_5_0`) + VRAM Cache (`Ctrl+F4`)**:
+  - Upscales UI textures, icons, font atlases, and **offscreen UI render targets** (`UpscaleUiRenderTargets = true`, e.g. text windows at *Global Zoom 3.00*) to `2×` resolution in real time.
+  - Detail-preserving architecture for small glyphs (`<= 96 px` edges): protects thin strokes, serifs, and umlauts/accents from erosion.
+  - Flicker-free dynamic throttling and automatic dirty tracking across `Map`, `UpdateSubresource`, `CopyResource`, `OMSetRenderTargets`, and `ClearRenderTargetView`.
+- **Subpixel UI & Font Reconstruction Shader (`ps_4_0`, `F8` / `F7`)**:
+  - Edge-directed 12-tap reconstruction with adaptive unsharp masking and 4 sharpness presets (`Low 0.35`, `Med 0.70`, `High 1.05`, `Ultra 1.40` via `F7`).
+  - **Map Mode (`MapMode = true`)**: Calms coarse parchment grain on upscaled maps (`896×576`/`1024×768`) while preserving crisp text strokes and semi-transparent overlays.
+  - **Nameplate Sharpening (`EnhanceNameplates = true`)**: Sharpens floating 3D nameplates (`DepthEnable=TRUE, DepthWriteMask=ZERO`) without touching 3D world geometry.
+- **Interactive In-Game Control Center (`Ctrl+F9`)**:
+  - Rendered directly in DirectX 11 and controlled by mouse click: toggle and cycle every feature, sharpness preset, UI theme, glassmorphism, icon polish, Middle-earth color grade, 3D rim-lighting, vignette/horizon AA, eye-care mode, live hovered scaling (`-5%` / `+5%`), clipboard export, and `Save All Settings to INI` without touching config files — completely independent of the LOTRO Lua sandbox and available right from the character select screen.
+- **Universal UI Modernization & Font Legibility (`[UiTheme]`)**:
+  - **Font Outline / Halo Boost (`FontOutlineBoost = 0.35`)**: Generates a subtle dark micro-contrast halo around translucent bright glyphs so quest tracker text, chat, and tooltips remain crisp over bright snow or sky.
+  - **Adaptive Font Weight / Stem Boost (`FontWeightBoost = 0.25`)**: Intelligently reinforces hairline horizontal/vertical font stems (`Off` / `Soft 25%` / `Med 50%` / `Bold 80%`) so thin 1px legacy glyphs read like modern Regular/Medium weights at 1440p/4K.
+  - **Multi-Profile Modern UI Themes (`ThemeDarkSlate`, `ThemeProfile`)**: Transforms washed-out grey-brown panel backgrounds into modern **Obsidian Slate**, **Elven Bronze**, or **Dwarven Iron** palettes while keeping golden borders and bright text vibrant.
+  - **UI Frosted Glassmorphism (`Glassmorphism = 0.55`)**: Builds a smooth multi-pass quarter/eighth-resolution blur of the 3D scene behind semi-transparent HUD, chat, and tooltip panels for a crisp frosted-glass backdrop without blurring foreground text.
+  - **UI Icon & Gold Border Polish (`IconPolish = 0.40`)**: Applies selective local micro-contrast, vibrance, and subtle beveled metallic luster to colorful skill/item icons (`>= 24 px` textures) and golden frames while keeping text glyphs clean.
+  - **Eye-Care & Anti-Glare Modes (`EyeComfortMode`)**: Cycles `Off` -> `Anti-Glare` -> `Warm 5000K` -> `Night 4300K` across UI and 3D world.
+  - **Hover Focus & Contrast Boost (`HoverFocusBoost = true`)**: Gently boosts contrast and backdrop separation on the hovered UI panel/tooltip.
+  - **OLED Auto-Dim (`OledAutoDim`)**: Softly dims static top/bottom peripheral HUD bars (default `72%` opacity) while the cursor rests in the central 3D viewport, restoring `100%` opacity when hovering near them.
+- **Per-Element UI Scaling via Geometry Shader (`[ElementScale]`), Clipboard Export (`Ctrl+F2`) & Live Scaling (`Ctrl+PgUp`/`Ctrl+PgDn`)**:
+  - Selectively scale individual UI elements (e.g., tiny level badges, quest indicators, or icons).
+  - **1-Click Clipboard Export (`Ctrl+F2`)**: Hover any UI element and press `Ctrl+F2` to copy a ready-to-paste `[ElementScale]` rule (`Element_<WxH>_<Hash> = 0x<Hash>, +15%`) directly to the Windows clipboard.
+  - **Live In-Game Scaling (`Ctrl+PgUp` / `Ctrl+PgDn`)**: Scales the hovered UI element live by `+5%` / `-5%` and automatically saves the rule to `lotro_uie.ini`.
+- **Smart Hover Magnifier (`HoverMagnifier = true`, hold `ALT`)**:
+  - Holding `ALT` dynamically zooms the compact UI element under your mouse cursor to `1.25×` (`+25%`) via Geometry Shader bounding-box expansion.
 - **Custom HD Texture Replacement (`lotro_uie_overrides/`)**:
-  - Lege eigene hochauflösende `.png`- oder `.dds`-Texturen unter ihrem Hash-Namen (`0x<16HexHash>.png` oder `.dds`) in den Ordner `x64/lotro_uie_overrides/` — LOTRO-UIE ersetzt die alte Spieltextur beim Rendern automatisch auf der GPU (live neu ladbar via `Ctrl+F6`).
-- **Split-Screen A/B Live-Vergleich (`Ctrl+F3`)**:
-  - Zeigt auf der linken Bildschirmhälfte das unveränderte Original-LOTRO und auf der rechten Hälfte LOTRO-UIE (inkl. Trennlinie & `< ORIG | UIE >`-Anzeige).
-- **3D World-Only PostFX (`Ctrl+F5`) & 16× Anisotrope Welt-Sampler**:
-  - Führt direkt **vor** dem ersten UI-Draw-Call Contrast Adaptive Sharpening (CAS), Midtone-Clarity, Vibrance und Sky-Debanding ausschließlich auf der 3D-Spielwelt aus (unabhängig davon, ob `F8` ein- oder ausgeschaltet ist).
-  - Hebt 3D-Terrain-/Welt-Sampler automatisch auf `16× Anisotrop` und `MipLodBias = -0.35` an.
-- **Komprimierter 32-Bit RGBA `.png` Asset-Dumper (`Ctrl+F11`)**:
-  - Exportiert UI-Texturen ohne externe Bibliotheken direkt als verlustfreie RGBA8-`.png`-Dateien (ca. 85–92 % kleiner als `.bmp`) inkl. Textur-Hash-Zuordnung in `summary.txt` und `capture.json`.
+  - Drop custom `.png` or `.dds` textures named `0x<16HexHash>.png` or `.dds` into `x64/lotro_uie_overrides/` to replace legacy UI textures on the GPU at runtime (live-reloadable with `Ctrl+F6`).
+- **Split-Screen A/B Live Comparison (`Ctrl+F3`)**:
+  - Renders unmodified vanilla LOTRO on the left half of the screen and LOTRO-UIE on the right half (`< ORIG | UIE >`).
+- **3D World-Only PostFX (`Ctrl+F5`, `[WorldPostFX]`) & 16× Anisotropic World Samplers (`[Samplers]`)**:
+  - Executes **before** the first UI draw call (independent of `F8` UI toggling) on the 3D scene alone: Contrast Adaptive Sharpening (`CasStrength`), sky/fog debanding (`Deband`), midtone `Clarity`, `Vibrance`, atmospheric `Dehaze`, and soft-knee highlight `AntiGlare`.
+  - **Middle-earth Region Color Grading (`ColorProfile`)**: Cycles `Natural Modern` (balanced neutrality), `Rivendell Gold` (warm golden highlights & emerald greens), `Lothlorien Silver` (cool moonlight blues & ethereal highlights), and `Mordor Grim` (desaturated ash tones & deep contrast).
+  - **3D Dynamic Rim-Lighting & Metallic Specular Pop (`RimSpecular = 0.28`)**: Adds subtle screen-space silhouette rim light and metallic specular pop to armor, weapons, stone arches, and trim.
+  - **Cinematic Vignette & Upper-Horizon Anti-Shimmer (`Vignette = 0.16`, `HorizonSoften = 0.25`)**: Soft radial framing plus upper-sky silhouette smoothing to calm shimmering distant mountain edges without softening close-up foreground foliage.
+  - Upgrades 3D world mipmapped samplers to `16×` Anisotropic filtering with `-0.35` LOD bias.
+- **Compressed 32-Bit RGBA `.png` Asset Dumper (`Ctrl+F11`)**:
+  - Exports captured UI textures cleanly as lossless RGBA8 `.png` files (approx. 85–92% smaller than `.bmp`) alongside texture hash mappings in `summary.txt` and `capture.json`.
 
 ---
 
-## Standard-Hotkeys (LOTRO-kompatibel mit Modifiern)
+## Default Hotkeys (Modifier-Safe for LOTRO)
 
-Damit die LOTRO-eigenen Tasten für Gefährten-Auswahl (`F1`–`F6`) und das Systemmenü (`F10`) frei bleiben, nutzen die Diagnose- und Nebentasten standardmäßig `CTRL+`:
+To avoid conflicting with LOTRO's Fellowship selection keys (`F1`–`F6`) and System Menu (`F10`), diagnostic and secondary bindings use `CTRL+` modifiers:
 
-| Tastenkombination | Funktion |
+| Keybind | Action |
 | :--- | :--- |
-| **`Ctrl+F9`** | **Interaktives In-Game Control Center** öffnen/schließen (per Maus klickbar) |
-| **`F8`** | UI- & Schrift-Verbesserung ein-/ausschalten |
-| **`F7`** | Schärfe-Preset durchschalten (`Low` → `Med` → `High` → `Ultra`) |
-| **`F9`** | Diagnose-HUD oben links ein-/ausblenden (zeigt auch `Hover:0x...`) |
-| **`Ctrl+F2`** | **Hover-Textur-Hash** als fertige `[ElementScale]`-Regel in die Zwischenablage kopieren |
-| **`Ctrl+Bild↑` / `Ctrl+Bild↓`** | Gehovertes UI-Element live im Spiel **`+5%` / `-5%` skalieren** & in `lotro_uie.ini` speichern |
-| **`ALT` (halten)** | **Smart Hover-Lupe**: Vergrößert das kompakte UI-Element unter der Maus live auf `1.25×` |
-| **`Ctrl+F3`** | Split-Screen A/B-Vergleich (Links = Original, Rechts = LOTRO-UIE) |
-| **`Ctrl+F4`** | 2× Mini-CNN Super-Resolution ein-/ausschalten |
-| **`Ctrl+F5`** | 3D-Welt PostFX (CAS + Clarity + Vibrance + Deband) ein-/ausschalten |
-| **`Ctrl+F6`** | `lotro_uie.ini` & `lotro_uie_overrides/` live im Spiel neu laden |
-| **`Ctrl+F10`** | Frame-Diagnose-Capture (`summary.txt`, `draws.csv`, `capture.json`) |
-| **`Ctrl+F11`** | Vollständiger Capture + `.png`/Shader-Dump |
+| **`Ctrl+F9`** | Open/close the **Interactive In-Game Control Center** (mouse clickable) |
+| **`F8`** | Toggle UI & Font Enhancer on/off |
+| **`F7`** | Cycle Sharpness Presets (`Low` → `Med` → `High` → `Ultra`) |
+| **`F9`** | Toggle top-left diagnostic HUD (displays live `Hover:0x...` hash & size) |
+| **`Ctrl+F2`** | Copy **hovered UI texture hash** as a ready `[ElementScale]` rule to the clipboard |
+| **`Ctrl+PgUp` / `Ctrl+PgDn`** | Live-scale hovered UI element **`+5%` / `-5%`** & save to `lotro_uie.ini` |
+| **Hold `ALT`** | **Smart Hover Magnifier**: zoom the compact UI element under the cursor to `1.25×` |
+| **`Ctrl+F3`** | Toggle Split-Screen A/B comparison (Left = Vanilla, Right = LOTRO-UIE) |
+| **`Ctrl+F4`** | Toggle 2× Mini-CNN Super-Resolution on/off |
+| **`Ctrl+F5`** | Toggle 3D World PostFX on/off |
+| **`Ctrl+F6`** | Live-reload `lotro_uie.ini` and `lotro_uie_overrides/` in-game |
+| **`Ctrl+F10`** | Capture frame diagnostics (`summary.txt`, `draws.csv`, `capture.json`) |
+| **`Ctrl+F11`** | Full frame capture + compressed `.png` texture & shader dump |
 
 ---
 
-## Installation (Standalone-Launcher & Steam)
+## Installation (Standalone Launcher & Steam)
 
-1. Stelle sicher, dass im LOTRO-Launcher der **64-Bit-Client** und im Spiel unter Grafik **DirectX 11** aktiviert sind.
-2. **Empfohlene Installation (insbesondere für Steam + `GameOverlayRenderer64.dll`):**
-   - Kopiere **`dxgi.dll`** und **`lotro_uie.ini`** aus `build/dist/dxgi/` in den **`x64`**-Unterordner deiner LOTRO-Installation (z. B. `...\Steam\steamapps\common\Lord of the Rings Online\x64\`, dort wo `lotroclient64.exe` liegt).
-   - *(Wichtig: Lege die DLL **nur** in den `x64`-Unterordner, **nicht** in das Hauptverzeichnis neben `LotroLauncher.exe`, da der Qt-Launcher im Hauptverzeichnis sonst ebenfalls versucht, die Proxy-DLL zu laden. Lösche eine eventuell noch im `x64`-Ordner liegende alte `d3d11.dll`, wenn du `dxgi.dll` verwendest.)*
-3. **Alternative ohne Steam-Overlay:**
-   - Kopiere `d3d11.dll` und `lotro_uie.ini` aus `build/dist/d3d11/` in den `x64`-Unterordner.
+1. Make sure the LOTRO Launcher is set to the **64-bit client** and in-game graphics are set to **DirectX 11**.
+2. **Recommended installation (especially for Steam + `GameOverlayRenderer64.dll`):**
+   - Copy **`dxgi.dll`** and **`lotro_uie.ini`** from `build/dist/dxgi/` into the **`x64`** subfolder of your LOTRO installation (e.g. `...\Steam\steamapps\common\Lord of the Rings Online\x64\`, alongside `lotroclient64.exe`).
+   - *(Important: Place the DLL **only** inside the `x64` subfolder — **not** in the root directory next to `LotroLauncher.exe`, otherwise the Qt launcher will also try to load the proxy DLL. Remove any leftover `d3d11.dll` from `x64` when using `dxgi.dll`.)*
+3. **Alternative (without Steam Overlay):**
+   - Copy `d3d11.dll` and `lotro_uie.ini` from `build/dist/d3d11/` into the `x64` subfolder.
 
 ---
 
-## Einzelne UI-Elemente vergrößern (`[ElementScale]`)
+## Per-Element UI Scaling (`[ElementScale]`)
 
-Wenn dir ein bestimmtes Element (z. B. *„Level 50“* im Charakterfenster) zu klein ist:
-1. Drücke im Spiel **`F9`**, damit das HUD oben links sichtbar ist.
-2. Bewege die Maus genau auf das gewünschte UI-Element.
-3. Lies im HUD den Wert hinter `Hover:` ab, z. B. `Hover:0x8F3A12C49011B2E1(64x24)`.
-4. Öffne `lotro_uie.ini` im `x64`-Ordner und füge unter `[ElementScale]` eine Zeile hinzu:
+If a specific UI element (e.g., the tiny *Level 50* badge on the character panel) is too small:
+
+### Quick In-Game Method
+1. Hover your mouse cursor over the target UI element.
+2. Press **`Ctrl+PgUp`** / **`Ctrl+PgDn`** to scale it `+5%` / `-5%` live, or open **`Ctrl+F9`** and click **Adjust Hovered Element Scale**. Rules are saved automatically to `lotro_uie.ini`.
+
+### Manual / Custom Offset Method
+1. Press **`F9`** in-game to display the top-left HUD, hover the target UI element, and press **`Ctrl+F2`** to copy its `[ElementScale]` rule to the clipboard (or read `Hover:0x...` directly from the HUD).
+2. Open `lotro_uie.ini` in the `x64` folder and paste/edit the rule under `[ElementScale]`:
    ```ini
    [ElementScale]
-   CharakterLevel = 0x8F3A12C49011B2E1, +15%
+   CharLevelBadge = 0x8F3A12C49011B2E1, +15%
    ```
-   *(Optional kannst du auch Versatz und maximale Quad-Größe in Pixeln angeben: `CharakterLevel = 0x8F3A12C49011B2E1, +15%, 0, 0, 160, 60`)*
-5. Speichere `lotro_uie.ini` und drücke im Spiel **`Ctrl+F6`** — die Änderung ist sofort sichtbar!
+   *(Optional: specify pixel offsets and maximum quad size filter: `CharLevelBadge = 0x8F3A12C49011B2E1, +15%, 0, 0, 160, 60`)*
+3. Save `lotro_uie.ini` and press **`Ctrl+F6`** in-game to reload immediately.
 
 ---
 
-## Bauen (Visual Studio / CMake, x64)
+## Building & Testing (Visual Studio / CMake, x64)
 
 ```powershell
 cmake -S . -B build -G "Visual Studio 18 2026" -A x64
 cmake --build build --config Release
 ```
 
-Automatisierte Smoke-Tests (prüfen Proxy-Stabilität, Shader-Kompilierung, Schärfe-Presets, 2× Mini-CNN, Offscreen-UI-RTs, `[ElementScale]`, MapMode, 3D-WorldPostFX sowie `.png`/`.dds`/`.bmp`-Export):
+Run the automated smoke tests (verifying DX11 proxy stability, zero-warning shader compilation, sharpness presets, 2× Mini-CNN compute upscaling, offscreen UI render targets, `[ElementScale]`, MapMode, 3D World PostFX + frosted backdrop blur, and `.png`/`.dds`/`.bmp` capture exports) for both DLL modes:
 
 ```powershell
 .\build\Release\lotro_uie_smoke_test.exe .\build\dist\d3d11\d3d11.dll

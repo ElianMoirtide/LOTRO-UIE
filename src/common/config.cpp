@@ -107,6 +107,19 @@ uint32_t ParseEyeComfortMode(const std::string& val, uint32_t fallback) {
     }
 }
 
+uint32_t ParseWorldColorProfile(const std::string& val, uint32_t fallback) {
+    const std::string v = ToLower(Trim(val));
+    if (v == "natural" || v == "default" || v == "off" || v == "0") return 0u;
+    if (v == "rivendell" || v == "bruchtal" || v == "gold" || v == "fellowship" || v == "1") return 1u;
+    if (v == "lothlorien" || v == "lorien" || v == "silver" || v == "elven" || v == "2") return 2u;
+    if (v == "mordor" || v == "grim" || v == "dark" || v == "3") return 3u;
+    try {
+        return (std::clamp)(static_cast<uint32_t>(std::stoul(v)), 0u, 3u);
+    } catch (...) {
+        return fallback;
+    }
+}
+
 LogLevel ParseLogLevel(const std::string& val) {
     const std::string v = ToLower(Trim(val));
     if (v == "debug") return LogLevel::Debug;
@@ -344,6 +357,10 @@ Config Config::Load(const std::filesystem::path& moduleDir) {
                     cfg.uiThemeProfile = ParseThemeProfile(val, cfg.uiThemeProfile);
                 } else if (key == "eyecomfortmode" || key == "eyecare") {
                     cfg.uiEyeComfortMode = ParseEyeComfortMode(val, cfg.uiEyeComfortMode);
+                } else if (key == "glassmorphism" || key == "frostedglass") {
+                    cfg.uiGlassmorphism = ParseFloatOrBoolPreset(val, 0.55f, 0.0f, 1.0f, cfg.uiGlassmorphism);
+                } else if (key == "iconpolish" || key == "goldborderpolish") {
+                    cfg.uiIconPolish = ParseFloatOrBoolPreset(val, 0.40f, 0.0f, 1.0f, cfg.uiIconPolish);
                 } else if (key == "hoverfocusboost") {
                     cfg.uiHoverFocusBoost = ParseBool(val, cfg.uiHoverFocusBoost);
                 } else if (key == "oledautodim") {
@@ -397,6 +414,10 @@ Config Config::Load(const std::filesystem::path& moduleDir) {
                     cfg.uiThemeProfile = ParseThemeProfile(val, cfg.uiThemeProfile);
                 } else if (key == "eyecomfortmode" || key == "eyecare") {
                     cfg.uiEyeComfortMode = ParseEyeComfortMode(val, cfg.uiEyeComfortMode);
+                } else if (key == "glassmorphism" || key == "frostedglass") {
+                    cfg.uiGlassmorphism = ParseFloatOrBoolPreset(val, 0.55f, 0.0f, 1.0f, cfg.uiGlassmorphism);
+                } else if (key == "iconpolish" || key == "goldborderpolish") {
+                    cfg.uiIconPolish = ParseFloatOrBoolPreset(val, 0.40f, 0.0f, 1.0f, cfg.uiIconPolish);
                 } else if (key == "hoverfocusboost") {
                     cfg.uiHoverFocusBoost = ParseBool(val, cfg.uiHoverFocusBoost);
                 } else if (key == "oledautodim") {
@@ -443,6 +464,14 @@ Config Config::Load(const std::filesystem::path& moduleDir) {
                     try { cfg.worldDehaze = (std::clamp)(std::stof(val), 0.0f, 0.6f); } catch (...) {}
                 } else if (key == "antiglare") {
                     try { cfg.worldAntiGlare = (std::clamp)(std::stof(val), 0.0f, 1.0f); } catch (...) {}
+                } else if (key == "colorprofile" || key == "colorgrade") {
+                    cfg.worldColorProfile = ParseWorldColorProfile(val, cfg.worldColorProfile);
+                } else if (key == "rimspecular" || key == "rimlighting") {
+                    cfg.worldRimSpecular = ParseFloatOrBoolPreset(val, 0.28f, 0.0f, 1.0f, cfg.worldRimSpecular);
+                } else if (key == "vignette") {
+                    cfg.worldVignette = ParseFloatOrBoolPreset(val, 0.16f, 0.0f, 0.60f, cfg.worldVignette);
+                } else if (key == "horizonsoften" || key == "horizonaa") {
+                    cfg.worldHorizonSoften = ParseFloatOrBoolPreset(val, 0.25f, 0.0f, 1.0f, cfg.worldHorizonSoften);
                 } else if (key == "hotkeytoggle") {
                     cfg.hotkeyToggleWorldFx = ParseVirtualKey(val, cfg.hotkeyToggleWorldFx);
                 }
@@ -570,8 +599,8 @@ bool Config::Save() const {
         << "HotkeyToggleSplit = " << VirtualKeyName(hotkeyToggleSplit) << "\n\n";
 
     std::snprintf(fbuf, sizeof(fbuf),
-                  "FontOutlineBoost = %.2f\nFontWeightBoost = %.2f\nThemeDarkSlate = %.2f\nThemeProfile = %u\nEyeComfortMode = %u\nOledDimOpacity = %.2f\nHoverMagnifierScale = %.2f\n",
-                  uiFontOutlineBoost, uiFontWeightBoost, uiThemeDarkSlate, uiThemeProfile, uiEyeComfortMode, uiOledDimOpacity, hoverMagnifierScale);
+                  "FontOutlineBoost = %.2f\nFontWeightBoost = %.2f\nThemeDarkSlate = %.2f\nThemeProfile = %u\nEyeComfortMode = %u\nGlassmorphism = %.2f\nIconPolish = %.2f\nOledDimOpacity = %.2f\nHoverMagnifierScale = %.2f\n",
+                  uiFontOutlineBoost, uiFontWeightBoost, uiThemeDarkSlate, uiThemeProfile, uiEyeComfortMode, uiGlassmorphism, uiIconPolish, uiOledDimOpacity, hoverMagnifierScale);
     out << "[UiTheme]\n"
         << fbuf
         << "HoverFocusBoost = " << (uiHoverFocusBoost ? "true" : "false") << "\n"
@@ -614,8 +643,8 @@ bool Config::Save() const {
         << "HotkeyToggle = " << VirtualKeyName(hotkeyToggleCnn) << "\n\n";
 
     std::snprintf(fbuf, sizeof(fbuf),
-                  "CasStrength = %.2f\nClarity = %.2f\nVibrance = %.2f\nDehaze = %.2f\nAntiGlare = %.2f\n",
-                  worldCasStrength, worldClarity, worldVibrance, worldDehaze, worldAntiGlare);
+                  "CasStrength = %.2f\nClarity = %.2f\nVibrance = %.2f\nDehaze = %.2f\nAntiGlare = %.2f\nColorProfile = %u\nRimSpecular = %.2f\nVignette = %.2f\nHorizonSoften = %.2f\n",
+                  worldCasStrength, worldClarity, worldVibrance, worldDehaze, worldAntiGlare, worldColorProfile, worldRimSpecular, worldVignette, worldHorizonSoften);
     out << "[WorldPostFX]\n"
         << "Enabled = " << (worldPostFxEnabled ? "true" : "false") << "\n"
         << fbuf

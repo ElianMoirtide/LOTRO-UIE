@@ -4,6 +4,7 @@
 #include "dx11/dxgi_format_names.h"
 #include "dx11/resource_tracker.h"
 #include "dx11/ui_sr_cache.h"
+#include "dx11/world_postfx.h"
 
 #include <Windows.h>
 #include <d3dcompiler.h>
@@ -82,6 +83,7 @@ void SafeRelease(T*& p) {
 //   Variant 1 (0x43AA4E3C051DFEB6): c_TextureMatrix0 at cb0[10..13], c_AlphaTestThreshold at cb0[14].x
 const char kUiEnhancePsSrc[] = R"(
 Texture2D Tex0 : register(t0);
+Texture2D BackdropBlurTex : register(t14);
 SamplerState OrigSamp : register(s0);
 SamplerState LinearSamp : register(s15);
 
@@ -113,6 +115,10 @@ cbuffer UieParams : register(b12) {
     float g_themeProfile;
     float g_eyeComfortMode;
     float g_hoverFocusBoost;
+    float g_glassmorphism;
+    float g_iconPolish;
+    float g_screenWidth;
+    float g_hasBackdropBlur;
 };
 
 struct PSIn {
@@ -467,13 +473,14 @@ float4 main(PSIn i) : SV_Target {
         texel.rgb = saturate(texel.rgb * (1.0f + goldMask * 0.22f));
     }
 
-    // Universal Dual-Mode Font Weight (Stem Dilation) & Font Outline (Halo/Moat) Booster:
-    // Works across both translucent text overlays (Character Stats, HUD) AND opaque pre-composited
-    // UI window textures (Quest Log, Character Window, Chat, Tooltips) at any UI scale (1.0x..3.0x).
+    // Universal Dual-Mode Font Weight (Stem Dilation) & Font Outline (Halo/Moat) Booster + Icon & Border Polish:
+    // Works across translucent text overlays, opaque pre-composited UI windows, colorful skill/item icons,
+    // and ornate gold/silver frames at any UI scale (1.0x..3.0x).
     float origMaxDim = max((float)texW, (float)texH) * ((isSr > 0.5f) ? 0.5f : 1.0f);
+    float isTextPixel = 0.0f;
     [branch]
-    if ((g_fontWeightBoost > 0.001f || g_fontOutlineBoost > 0.001f) &&
-        origMaxDim >= 48.0f && c_AlphaTestThreshold < 0.25f && isMap < 0.5f) {
+    if ((g_fontWeightBoost > 0.001f || g_fontOutlineBoost > 0.001f || g_iconPolish > 0.001f || g_glassmorphism > 0.001f) &&
+        origMaxDim >= 24.0f && c_AlphaTestThreshold < 0.25f && isMap < 0.5f) {
         float2 subStep   = ((isSr > 0.5f) ? 1.25f : 0.62f) / texSize;
         float2 unitStep  = ((isSr > 0.5f) ? 1.85f : 0.92f) / texSize;
         float2 outerStep = ((isSr > 0.5f) ? 4.20f : 2.10f) / texSize;
@@ -553,40 +560,76 @@ float4 main(PSIn i) : SV_Target {
                             smoothstep(0.36f, 0.18f, minHaloL) *
                             smoothstep(0.75f, 0.92f, minHaloA);
 
-        // 1. Adaptive Font Weight / Stem Boost: sub-texel morphological dilation + core brightness lift
-        if (g_fontWeightBoost > 0.001f) {
-            float wBoost = saturate(g_fontWeightBoost);
-            if (lightTextMask > 0.001f) {
-                float dilate = lightTextMask * wBoost * 0.82f;
-                texel.rgb = lerp(texel.rgb, max(texel.rgb, cCardHi.rgb), dilate);
-                texel.a   = lerp(texel.a,   max(texel.a,   cCardHi.a),   dilate);
+        isTextPixel = max(lightTextMask, darkInkMask);
 
-                float curL = dot(texel.rgb, kLumaW) * texel.a;
-                float coreMask = smoothstep(minHaloL + 0.15f * localSpan, maxHaloL, curL) * lightTextMask;
-                texel.rgb = saturate(texel.rgb * (1.0f + coreMask * wBoost * 0.32f));
+        if (origMaxDim >= 48.0f) {
+            // 1. Adaptive Font Weight / Stem Boost: sub-texel morphological dilation + core brightness lift
+            if (g_fontWeightBoost > 0.001f) {
+                float wBoost = saturate(g_fontWeightBoost);
+                if (lightTextMask > 0.001f) {
+                    float dilate = lightTextMask * wBoost * 0.82f;
+                    texel.rgb = lerp(texel.rgb, max(texel.rgb, cCardHi.rgb), dilate);
+                    texel.a   = lerp(texel.a,   max(texel.a,   cCardHi.a),   dilate);
+
+                    float curL = dot(texel.rgb, kLumaW) * texel.a;
+                    float coreMask = smoothstep(minHaloL + 0.15f * localSpan, maxHaloL, curL) * lightTextMask;
+                    texel.rgb = saturate(texel.rgb * (1.0f + coreMask * wBoost * 0.32f));
+                }
+                if (darkInkMask > 0.001f) {
+                    float inkDilate = darkInkMask * wBoost * 0.75f;
+                    texel.rgb = lerp(texel.rgb, min(texel.rgb, cCardLo.rgb), inkDilate);
+                }
             }
-            if (darkInkMask > 0.001f) {
-                float inkDilate = darkInkMask * wBoost * 0.75f;
-                texel.rgb = lerp(texel.rgb, min(texel.rgb, cCardLo.rgb), inkDilate);
+
+            // 2. Font Outline / Halo Boost: crisp dark border moat around glyphs + bright inner stroke contrast
+            if (g_fontOutlineBoost > 0.001f && lightTextMask > 0.001f) {
+                float oBoost = saturate(g_fontOutlineBoost) * lightTextMask;
+                float curEffL = dot(texel.rgb, kLumaW) * texel.a;
+                float relPos = saturate((curEffL - minHaloL) / max(localSpan, 1.0e-4f));
+
+                float outerRing = smoothstep(0.52f, 0.18f, relPos);
+                texel.rgb *= (1.0f - outerRing * oBoost * 0.85f);
+
+                if (minHaloA < 0.85f) {
+                    float haloAlphaTarget = maxHaloA * (0.55f + 0.30f * saturate(g_fontOutlineBoost));
+                    texel.a = lerp(texel.a, max(texel.a, haloAlphaTarget), outerRing * oBoost);
+                }
+
+                float innerCore = smoothstep(0.45f, 0.80f, relPos);
+                texel.rgb = saturate(texel.rgb * (1.0f + innerCore * oBoost * 0.24f));
             }
         }
 
-        // 2. Font Outline / Halo Boost: crisp dark border moat around glyphs + bright inner stroke contrast
-        if (g_fontOutlineBoost > 0.001f && lightTextMask > 0.001f) {
-            float oBoost = saturate(g_fontOutlineBoost) * lightTextMask;
-            float curEffL = dot(texel.rgb, kLumaW) * texel.a;
-            float relPos = saturate((curEffL - minHaloL) / max(localSpan, 1.0e-4f));
+        // 3. UI Icon & Gold Border Polish: micro-contrast + luster for skill/item icons and ornate bronze/gold frames
+        if (g_iconPolish > 0.001f && texel.a > 0.22f && isTextPixel < 0.22f) {
+            float minCardA = min(min(nL.a, nR.a), min(nU.a, nD.a));
+            float pMaxC = max(texel.r, max(texel.g, texel.b));
+            float pMinC = min(texel.r, min(texel.g, texel.b));
+            float pSat  = (pMaxC > 1.0e-4f) ? ((pMaxC - pMinC) / pMaxC) : 0.0f;
+            float pLum  = dot(texel.rgb, kLumaW);
 
-            float outerRing = smoothstep(0.52f, 0.18f, relPos);
-            texel.rgb *= (1.0f - outerRing * oBoost * 0.85f);
+            float polishStr = saturate(g_iconPolish);
+            float warmGold = saturate((texel.r - texel.b) * 2.4f) *
+                             smoothstep(0.16f, 0.42f, pSat) *
+                             smoothstep(0.16f, 0.45f, pLum);
 
-            if (minHaloA < 0.85f) {
-                float haloAlphaTarget = maxHaloA * (0.55f + 0.30f * saturate(g_fontOutlineBoost));
-                texel.a = lerp(texel.a, max(texel.a, haloAlphaTarget), outerRing * oBoost);
+            float iconMask = smoothstep(0.20f, 0.45f, pSat) *
+                             smoothstep(0.10f, 0.30f, pLum) *
+                             smoothstep(0.60f, 0.85f, minCardA) *
+                             (1.0f - isTextPixel);
+            if (iconMask > 0.001f) {
+                float3 nAvg = 0.25f * (nL.rgb + nR.rgb + nU.rgb + nD.rgb);
+                float3 microHp = clamp(texel.rgb - nAvg, -0.14f, 0.14f);
+                texel.rgb = saturate(texel.rgb + microHp * (polishStr * 0.85f * iconMask));
+                texel.rgb = saturate(lerp(float3(pLum, pLum, pLum), texel.rgb,
+                                          1.0f + polishStr * 0.24f * iconMask * (1.0f - pSat * 0.45f)));
             }
 
-            float innerCore = smoothstep(0.45f, 0.80f, relPos);
-            texel.rgb = saturate(texel.rgb * (1.0f + innerCore * oBoost * 0.24f));
+            if (warmGold > 0.001f) {
+                float bevelHi = smoothstep(0.42f, 0.78f, pLum) * warmGold * polishStr;
+                float bevelLo = smoothstep(0.32f, 0.12f, pLum) * warmGold * polishStr;
+                texel.rgb = saturate(texel.rgb + float3(0.065f, 0.048f, 0.012f) * bevelHi - texel.rgb * (bevelLo * 0.22f));
+            }
         }
     }
 
@@ -631,7 +674,44 @@ float4 main(PSIn i) : SV_Target {
     if (c_AlphaTestThreshold >= texel.a) {
         discard;
     }
-    return texel * c_MaterialDiffuseColor;
+
+    float4 outPx = texel * c_MaterialDiffuseColor;
+
+    // UI Frosted Glassmorphism: blurs the 3D scene behind semi-transparent dark/slate HUD/chat/tooltip panels
+    [branch]
+    if (g_glassmorphism > 0.001f && g_hasBackdropBlur > 0.5f &&
+        isMap < 0.5f && origMaxDim >= 24.0f && c_AlphaTestThreshold < 0.25f &&
+        isTextPixel < 0.18f && outPx.a > 0.14f && outPx.a < 0.88f) {
+        float gLum = dot(outPx.rgb, float3(0.2126f, 0.7152f, 0.0722f));
+        float gMax = max(outPx.r, max(outPx.g, outPx.b));
+        float gMin = min(outPx.r, min(outPx.g, outPx.b));
+        float gSat = (gMax > 1.0e-4f) ? ((gMax - gMin) / gMax) : 0.0f;
+
+        float alphaWindow = smoothstep(0.14f, 0.28f, outPx.a) * smoothstep(0.88f, 0.74f, outPx.a);
+        float darkPanelMask = smoothstep(0.34f, 0.16f, gLum) * smoothstep(0.46f, 0.18f, gSat);
+        float glassMask = alphaWindow * darkPanelMask * (1.0f - isTextPixel) * saturate(g_glassmorphism);
+
+        if (glassMask > 0.001f) {
+            float2 gStep = ((isSr > 0.5f) ? 2.0f : 1.0f) / texSize;
+            float gMinA = min(min(Tex0.SampleLevel(LinearSamp, i.uv + float2(-gStep.x, 0.0f), 0).a,
+                                  Tex0.SampleLevel(LinearSamp, i.uv + float2( gStep.x, 0.0f), 0).a),
+                              min(Tex0.SampleLevel(LinearSamp, i.uv + float2(0.0f, -gStep.y), 0).a,
+                                  Tex0.SampleLevel(LinearSamp, i.uv + float2(0.0f,  gStep.y), 0).a));
+            glassMask *= smoothstep(0.25f, 0.55f, gMinA);
+            if (glassMask > 0.001f) {
+                float2 screenUv = i.pos.xy / max(float2(g_screenWidth, g_screenHeight), 1.0f);
+                float3 blurBg = BackdropBlurTex.SampleLevel(LinearSamp, screenUv, 0).rgb;
+                float3 tintedFrost = lerp(blurBg * 0.80f + float3(0.015f, 0.020f, 0.028f),
+                                          outPx.rgb,
+                                          clamp(outPx.a * 0.95f, 0.22f, 0.68f));
+                float frostedAlpha = lerp(outPx.a, max(outPx.a, 0.92f), glassMask);
+                outPx.rgb = lerp(outPx.rgb, saturate(tintedFrost), glassMask);
+                outPx.a   = frostedAlpha;
+            }
+        }
+    }
+
+    return outPx;
 }
 )";
 
@@ -875,12 +955,15 @@ void UiEnhancer::ApplyConfigLocked(const Config& cfg) {
     enableTextureOverrides_.store(cfg.enableTextureOverrides, std::memory_order_release);
     themeProfile_.store((std::min)(cfg.uiThemeProfile, 2u), std::memory_order_release);
     eyeComfortMode_.store((std::min)(cfg.uiEyeComfortMode, 3u), std::memory_order_release);
+    glassmorphismAtomic_.store(cfg.uiGlassmorphism, std::memory_order_release);
     sharpness_ = cfg.uiSharpness;
     edgeAniso_ = cfg.uiEdgeAniso;
     mapSharpnessBoost_ = cfg.uiMapSharpnessBoost;
     fontOutlineBoost_ = cfg.uiFontOutlineBoost;
     fontWeightBoost_ = cfg.uiFontWeightBoost;
     themeDarkSlate_ = cfg.uiThemeDarkSlate;
+    glassmorphism_ = cfg.uiGlassmorphism;
+    iconPolish_ = cfg.uiIconPolish;
     oledDimOpacity_ = cfg.uiOledDimOpacity;
     hoverMagnifierKey_ = cfg.hoverMagnifierKey;
     hoverMagnifierScale_ = cfg.hoverMagnifierScale;
@@ -1040,6 +1123,41 @@ void UiEnhancer::CycleEyeComfortMode() {
     UIE_LOG_INFO("Eye Comfort Mode cycled to %u", next);
 }
 
+void UiEnhancer::CycleGlassmorphism() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (glassmorphism_ < 0.10f) {
+        glassmorphism_ = 0.40f;
+    } else if (glassmorphism_ < 0.50f) {
+        glassmorphism_ = 0.55f;
+    } else if (glassmorphism_ < 0.72f) {
+        glassmorphism_ = 0.85f;
+    } else {
+        glassmorphism_ = 0.00f;
+    }
+    glassmorphismAtomic_.store(glassmorphism_, std::memory_order_release);
+    cbDirty_.store(true, std::memory_order_release);
+    UIE_LOG_INFO("UI Glassmorphism cycled to %.2f", glassmorphism_);
+}
+
+void UiEnhancer::CycleIconPolish() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (iconPolish_ < 0.10f) {
+        iconPolish_ = 0.30f;
+    } else if (iconPolish_ < 0.36f) {
+        iconPolish_ = 0.40f;
+    } else if (iconPolish_ < 0.60f) {
+        iconPolish_ = 0.70f;
+    } else {
+        iconPolish_ = 0.00f;
+    }
+    cbDirty_.store(true, std::memory_order_release);
+    UIE_LOG_INFO("UI Icon & Gold Border Polish cycled to %.2f", iconPolish_);
+}
+
+float UiEnhancer::GetGlassmorphism() const noexcept {
+    return glassmorphismAtomic_.load(std::memory_order_acquire);
+}
+
 uint32_t UiEnhancer::GetEyeComfortMode() const noexcept {
     return eyeComfortMode_.load(std::memory_order_acquire);
 }
@@ -1065,6 +1183,8 @@ void UiEnhancer::ExportCurrentStateToConfig(Config& ioConfig) const {
     ioConfig.uiFontOutlineBoost = fontOutlineBoost_;
     ioConfig.uiFontWeightBoost = fontWeightBoost_;
     ioConfig.uiThemeDarkSlate = themeDarkSlate_;
+    ioConfig.uiGlassmorphism = glassmorphism_;
+    ioConfig.uiIconPolish = iconPolish_;
     ioConfig.uiThemeProfile = themeProfile_.load(std::memory_order_relaxed);
     ioConfig.uiEyeComfortMode = eyeComfortMode_.load(std::memory_order_relaxed);
     ioConfig.uiOledDimOpacity = oledDimOpacity_;
@@ -1343,15 +1463,16 @@ void UiEnhancer::OnDeviceCreated(ID3D11Device* device) {
         }
     }
 
+    const float screenW = static_cast<float>((std::max)(swapWidth_.load(std::memory_order_relaxed), 64u));
     const float splitMinX = splitScreen_.load(std::memory_order_relaxed)
-        ? (0.5f * static_cast<float>((std::max)(swapWidth_.load(std::memory_order_relaxed), 64u)))
+        ? (0.5f * screenW)
         : 0.0f;
     const float screenH = static_cast<float>((std::max)(swapHeight_.load(std::memory_order_relaxed), 360u));
     const float oledDim = (oledAutoDim_.load(std::memory_order_relaxed) && cursorInCenter3d_.load(std::memory_order_relaxed))
         ? (1.0f - oledDimOpacity_)
         : 0.0f;
 
-    for (int cbIdx = 0; cbIdx < 16; ++cbIdx) {
+    for (int cbIdx = 0; cbIdx < 32; ++cbIdx) {
         GpuParams initParams{
             sharpness_,
             edgeAniso_,
@@ -1368,7 +1489,11 @@ void UiEnhancer::OnDeviceCreated(ID3D11Device* device) {
             fontWeightBoost_,
             static_cast<float>(themeProfile_.load(std::memory_order_relaxed)),
             static_cast<float>(eyeComfortMode_.load(std::memory_order_relaxed)),
-            0.0f
+            0.0f,
+            glassmorphism_,
+            iconPolish_,
+            screenW,
+            ((cbIdx & 16) != 0) ? 1.0f : 0.0f
         };
         D3D11_BUFFER_DESC cbDesc{};
         cbDesc.ByteWidth = sizeof(GpuParams);
@@ -1445,8 +1570,11 @@ bool UiEnhancer::PrepareDraw(ID3D11DeviceContext* ctx, const ContextState& st, U
     out.replacementPs = nullptr;
     out.replacementGs = nullptr;
     out.replacementSrv0 = nullptr;
+    out.backdropSrv = nullptr;
     out.scaleCb = nullptr;
     out.soBuffer = nullptr;
+    out.cbMask = 0;
+    out.isHoverFocus = false;
     if (!st.ps || !st.psSrvs[0] || !st.rtvs[0]) return false;
 
     const uint32_t regCount = registeredCount_.load(std::memory_order_relaxed);
@@ -1578,7 +1706,13 @@ bool UiEnhancer::PrepareDraw(ID3D11DeviceContext* ctx, const ContextState& st, U
             devPtr, ctx, st.psSrvs[0], (wrapIdx & 1) != 0, (wrapIdx & 2) != 0);
     }
 
-    const int cbMask = wrapIdx | (isMapDraw ? 4 : 0) | (replacementSrv ? 8 : 0);
+    ID3D11ShaderResourceView* backdropSrv = nullptr;
+    if (rtvMeta->isBackbuffer && !isMapDraw && glassmorphismAtomic_.load(std::memory_order_relaxed) > 0.001f) {
+        backdropSrv = WorldPostFx::Instance().GetBackdropBlurSrv();
+    }
+
+    const int baseCbMask = wrapIdx | (isMapDraw ? 4 : 0) | (replacementSrv ? 8 : 0);
+    const int cbMask = baseCbMask | (backdropSrv ? 16 : 0);
 
     std::lock_guard<std::mutex> lock(mutex_);
     if (!ready_) return false;
@@ -1691,9 +1825,12 @@ bool UiEnhancer::PrepareDraw(ID3D11DeviceContext* ctx, const ContextState& st, U
 
     out.active = true;
     out.isMapDraw = isMapDraw;
+    out.cbMask = static_cast<uint8_t>(baseCbMask);
+    out.isHoverFocus = useHoverCb;
     out.origPs = st.ps;
     out.replacementPs = (variant == 1) ? enhancedPsB_ : enhancedPsA_;
     out.replacementSrv0 = replacementSrv;
+    out.backdropSrv = backdropSrv;
     out.srApplied = (replacementSrv != nullptr);
     out.linearSampler = linearSamp;
     out.paramCb = cb;
@@ -1702,6 +1839,24 @@ bool UiEnhancer::PrepareDraw(ID3D11DeviceContext* ctx, const ContextState& st, U
     if (isMapDraw) liveMapDraws_.fetch_add(1, std::memory_order_relaxed);
     if (out.scaleApplied) liveScaledDraws_.fetch_add(1, std::memory_order_relaxed);
     return true;
+}
+
+void UiEnhancer::AttachBackdropBlurIfNeeded(UiDrawOverride& ov) {
+    if (!ov.active || !ov.isBackbufferTarget || ov.isMapDraw || ov.backdropSrv ||
+        glassmorphismAtomic_.load(std::memory_order_relaxed) <= 0.001f) {
+        return;
+    }
+    ID3D11ShaderResourceView* blurSrv = WorldPostFx::Instance().GetBackdropBlurSrv();
+    if (!blurSrv) return;
+
+    const int cbIdx = static_cast<int>(ov.cbMask & 15u) | 16;
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!ready_) return;
+    ID3D11Buffer* cb = (ov.isHoverFocus && hoveredParamCbs_[cbIdx]) ? hoveredParamCbs_[cbIdx] : paramCbs_[cbIdx];
+    if (cb) {
+        ov.backdropSrv = blurSrv;
+        ov.paramCb = cb;
+    }
 }
 
 void UiEnhancer::SyncGpuConstants(ID3D11DeviceContext* immediateCtx) {
@@ -1715,15 +1870,16 @@ void UiEnhancer::SyncGpuConstants(ID3D11DeviceContext* immediateCtx) {
     ctxDev->Release();
     if (!ready_ || !sameDevice || !cbDirty_.exchange(false, std::memory_order_acq_rel)) return;
 
+    const float screenW = static_cast<float>((std::max)(swapWidth_.load(std::memory_order_relaxed), 64u));
     const float splitMinX = splitScreen_.load(std::memory_order_relaxed)
-        ? (0.5f * static_cast<float>((std::max)(swapWidth_.load(std::memory_order_relaxed), 64u)))
+        ? (0.5f * screenW)
         : 0.0f;
     const float screenH = static_cast<float>((std::max)(swapHeight_.load(std::memory_order_relaxed), 360u));
     const float oledDim = (oledAutoDim_.load(std::memory_order_relaxed) && cursorInCenter3d_.load(std::memory_order_relaxed))
         ? (1.0f - oledDimOpacity_)
         : 0.0f;
 
-    for (int cbIdx = 0; cbIdx < 16; ++cbIdx) {
+    for (int cbIdx = 0; cbIdx < 32; ++cbIdx) {
         if (!paramCbs_[cbIdx]) continue;
         GpuParams params{
             sharpness_,
@@ -1741,7 +1897,11 @@ void UiEnhancer::SyncGpuConstants(ID3D11DeviceContext* immediateCtx) {
             fontWeightBoost_,
             static_cast<float>(themeProfile_.load(std::memory_order_relaxed)),
             static_cast<float>(eyeComfortMode_.load(std::memory_order_relaxed)),
-            0.0f
+            0.0f,
+            glassmorphism_,
+            iconPolish_,
+            screenW,
+            ((cbIdx & 16) != 0) ? 1.0f : 0.0f
         };
         immediateCtx->UpdateSubresource(paramCbs_[cbIdx], 0, nullptr, &params, 0, 0);
         if (hoveredParamCbs_[cbIdx]) {
@@ -1774,7 +1934,8 @@ void UiEnhancer::OnFrameEnd(ID3D11DeviceContext* immediateCtx, bool freezeHoverS
         const float nx = static_cast<float>(pt.x) / w;
         const float ny = static_cast<float>(pt.y) / h;
         inCenter = (nx > 0.18f && nx < 0.82f && ny > 0.20f && ny < 0.76f);
-        cursorInMenuRect = freezeHoverSelection && (pt.x >= 16 && pt.x <= 960 && pt.y >= 16 && pt.y <= 720);
+        const int maxMenuY = (std::max)(720, static_cast<int>(h * 0.56f));
+        cursorInMenuRect = freezeHoverSelection && (pt.x >= 16 && pt.x <= 960 && pt.y >= 16 && pt.y <= maxMenuY);
     } else {
         cursorX_.store(-1, std::memory_order_relaxed);
         cursorY_.store(-1, std::memory_order_relaxed);
@@ -1868,6 +2029,8 @@ UiEnhancerStats UiEnhancer::GetStats() const {
     s.fontOutlineBoost = fontOutlineBoost_;
     s.fontWeightBoost = fontWeightBoost_;
     s.themeDarkSlate = themeDarkSlate_;
+    s.glassmorphism = glassmorphism_;
+    s.iconPolish = iconPolish_;
     s.themeProfile = themeProfile_.load(std::memory_order_acquire);
     s.eyeComfortMode = eyeComfortMode_.load(std::memory_order_acquire);
     s.lastFrameEnhancedDraws = lastFrameEnhancedDraws_;

@@ -944,6 +944,14 @@ public:
                 ctx_->PSSetShaderResources(0, 1, &ov_.replacementSrv0);
             }
         }
+        if (ov_.backdropSrv) {
+            ctx_->PSGetShaderResources(14, 1, &origSrv14_);
+            if (auto psrv = g_dispPSSetSRVs.Resolve(ctx_)) {
+                psrv(ctx_, 14, 1, &ov_.backdropSrv);
+            } else {
+                ctx_->PSSetShaderResources(14, 1, &ov_.backdropSrv);
+            }
+        }
         ctx_->PSGetSamplers(15, 1, &origSampler15_);
         ctx_->PSGetConstantBuffers(12, 1, &origCb12_);
         if (auto pss = g_dispPSSetShader.Resolve(ctx_)) {
@@ -1001,6 +1009,17 @@ public:
                 origSrv0_ = nullptr;
             }
         }
+        if (ov_.backdropSrv) {
+            if (auto psrv = g_dispPSSetSRVs.Resolve(ctx_)) {
+                psrv(ctx_, 14, 1, &origSrv14_);
+            } else {
+                ctx_->PSSetShaderResources(14, 1, &origSrv14_);
+            }
+            if (origSrv14_) {
+                origSrv14_->Release();
+                origSrv14_ = nullptr;
+            }
+        }
         if (auto pss = g_dispPSSetShader.Resolve(ctx_)) {
             pss(ctx_, ov_.origPs, nullptr, 0);
         } else {
@@ -1019,6 +1038,7 @@ public:
 private:
     ID3D11DeviceContext* ctx_ = nullptr;
     ID3D11ShaderResourceView* origSrv0_ = nullptr;
+    ID3D11ShaderResourceView* origSrv14_ = nullptr;
     ID3D11SamplerState* origSampler15_ = nullptr;
     ID3D11Buffer* origCb12_ = nullptr;
     ID3D11GeometryShader* origGs_ = nullptr;
@@ -1040,8 +1060,11 @@ void TrackAndPrepareDraw(
         ScopedHookBypass bypass;
         UiEnhancer::Instance().PrepareDraw(ctx, st, ov, count);
     });
-    if (ov.isUiCandidateDraw && ov.isBackbufferTarget && WorldPostFx::Instance().IsEnabled() &&
-        !WorldPostFx::Instance().GetStats().activeThisFrame) {
+    const bool needWorldOrGlass =
+        WorldPostFx::Instance().IsEnabled() ||
+        (UiEnhancer::Instance().IsEnabled() && UiEnhancer::Instance().GetGlassmorphism() > 0.001f);
+    if (ov.isUiCandidateDraw && ov.isBackbufferTarget && needWorldOrGlass &&
+        !WorldPostFx::Instance().HasProcessedThisFrame()) {
         IDXGISwapChain* sc = nullptr;
         {
             std::lock_guard<std::mutex> lock(g_swapInfoMutex);
@@ -1059,6 +1082,7 @@ void TrackAndPrepareDraw(
             sc->Release();
         }
     }
+    UiEnhancer::Instance().AttachBackdropBlurIfNeeded(ov);
 }
 
 void STDMETHODCALLTYPE HookDrawIndexed(

@@ -52,6 +52,8 @@ struct Config {
     float uiThemeDarkSlate = 0.00f;
     uint32_t uiThemeProfile = 0;      // 0 = Obsidian Slate, 1 = Elven Bronze, 2 = Dwarven Iron
     uint32_t uiEyeComfortMode = 0;    // 0 = Off, 1 = Anti-Glare, 2 = Warm 5000K, 3 = Night 4300K
+    float uiGlassmorphism = 0.55f;    // Frosted-glass blur behind translucent UI panels (0.0 .. 1.0)
+    float uiIconPolish = 0.40f;       // Selective icon micro-contrast & golden border luster (0.0 .. 1.0)
     bool uiHoverFocusBoost = true;
     bool uiOledAutoDim = false;
     float uiOledDimOpacity = 0.72f;
@@ -77,6 +79,10 @@ struct Config {
     float worldVibrance = 0.12f;
     float worldDehaze = 0.18f;
     float worldAntiGlare = 0.25f;
+    uint32_t worldColorProfile = 0;   // 0 = Natural, 1 = Rivendell Gold, 2 = Lothlorien Silver, 3 = Mordor Grim
+    float worldRimSpecular = 0.28f;   // 3D dynamic rim-lighting & metallic armor sheen (0.0 .. 1.0)
+    float worldVignette = 0.16f;      // Subtle cinematic edge vignette (0.0 .. 0.60)
+    float worldHorizonSoften = 0.25f; // Distant sky/mountain horizon anti-shimmer (0.0 .. 1.0)
     UINT hotkeyToggleWorldFx = kHotkeyModCtrl | VK_F5;
 
     uint32_t samplerForceAniso = 16;

@@ -15,7 +15,7 @@ namespace lotro_uie {
 
 namespace {
 
-constexpr UINT kMaxOverlayVerts = 16384;
+constexpr UINT kMaxOverlayVerts = 24576;
 
 struct OverlayVertex {
     float x, y;
@@ -577,9 +577,9 @@ void DebugOverlay::Render(
     if (menuOpen_.load(std::memory_order_acquire)) {
         const float menuX = boxX;
         const float menuY = boxY + boxH + 6.0f * scale;
-        const float rowH = 14.0f * scale;
-        constexpr int kMenuRows = 16;
-        const float menuW = 56.0f * 8.0f * scale + pad * 2.0f;
+        const float rowH = 13.0f * scale;
+        constexpr int kMenuRows = 21;
+        const float menuW = 58.0f * 8.0f * scale + pad * 2.0f;
         const float menuH = (static_cast<float>(kMenuRows) + 1.5f) * rowH + pad * 2.0f;
 
         POINT curPt{-1, -1};
@@ -609,13 +609,14 @@ void DebugOverlay::Render(
             std::string value;
             bool active = false;
         };
+        const WorldPostFxStats wpStats = WorldPostFx::Instance().GetStats();
         char valBuf[64];
         std::vector<MenuRow> rows(kMenuRows);
         rows[0] = {"1. UI & Font Enhancer (F8)", uieStats.enabled ? "[ ON ]" : "[ OFF ]", uieStats.enabled};
         std::snprintf(valBuf, sizeof(valBuf), "[ %s (%.2f) ]", sharpTag, uieStats.sharpness);
         rows[1] = {"2. Sharpness Preset (F7)", valBuf, true};
         rows[2] = {"3. 2x Mini-CNN Super-Res (Ctrl+F4)", UiSrCache::Instance().IsEnabled() ? "[ ON ]" : "[ OFF ]", UiSrCache::Instance().IsEnabled()};
-        rows[3] = {"4. 3D World PostFX + Dehaze (Ctrl+F5)", WorldPostFx::Instance().IsEnabled() ? "[ ON ]" : "[ OFF ]", WorldPostFx::Instance().IsEnabled()};
+        rows[3] = {"4. 3D World PostFX + Dehaze (Ctrl+F5)", wpStats.enabled ? "[ ON ]" : "[ OFF ]", wpStats.enabled};
         rows[4] = {"5. Map Mode (Grain Calm + Text)", uieStats.mapMode ? "[ ON ]" : "[ OFF ]", uieStats.mapMode};
         rows[5] = {"6. Split-Screen A/B (Ctrl+F3)", uieStats.splitScreen ? "[ ON ]" : "[ OFF ]", uieStats.splitScreen};
         std::snprintf(valBuf, sizeof(valBuf), uieStats.fontOutlineBoost > 0.01f ? "[ %d%% ]" : "[ OFF ]",
@@ -638,16 +639,48 @@ void DebugOverlay::Render(
                           static_cast<int>(std::lround(uieStats.themeDarkSlate * 100.0f)));
         }
         rows[8] = {"9. Modern UI Color Theme", valBuf, uieStats.themeDarkSlate >= 0.05f};
+        if (uieStats.glassmorphism > 0.01f) {
+            std::snprintf(valBuf, sizeof(valBuf), "[ %d%% ]", static_cast<int>(std::lround(uieStats.glassmorphism * 100.0f)));
+        } else {
+            std::snprintf(valBuf, sizeof(valBuf), "[ OFF ]");
+        }
+        rows[9] = {"10. UI Frosted Glassmorphism", valBuf, uieStats.glassmorphism > 0.01f};
+        if (uieStats.iconPolish > 0.01f) {
+            std::snprintf(valBuf, sizeof(valBuf), "[ %d%% ]", static_cast<int>(std::lround(uieStats.iconPolish * 100.0f)));
+        } else {
+            std::snprintf(valBuf, sizeof(valBuf), "[ OFF ]");
+        }
+        rows[10] = {"11. UI Icon & Gold Border Polish", valBuf, uieStats.iconPolish > 0.01f};
+        const char* gradeLabel = (wpStats.colorProfile == 1u) ? "[ Rivendell Gold ]"
+                               : (wpStats.colorProfile == 2u) ? "[ Lothlorien Silver ]"
+                               : (wpStats.colorProfile == 3u) ? "[ Mordor Grim ]"
+                               : "[ Natural Modern ]";
+        rows[11] = {"12. Middle-earth Color Grade", gradeLabel, wpStats.colorProfile != 0u};
+        if (wpStats.rimSpecular > 0.01f) {
+            std::snprintf(valBuf, sizeof(valBuf), "[ %d%% ]", static_cast<int>(std::lround(wpStats.rimSpecular * 100.0f)));
+        } else {
+            std::snprintf(valBuf, sizeof(valBuf), "[ OFF ]");
+        }
+        rows[12] = {"13. 3D Rim-Light & Armor Specular", valBuf, wpStats.rimSpecular > 0.01f};
+        if (wpStats.vignette > 0.01f || wpStats.horizonSoften > 0.01f) {
+            std::snprintf(valBuf, sizeof(valBuf), "[ V%d%% / H%d%% ]",
+                          static_cast<int>(std::lround(wpStats.vignette * 100.0f)),
+                          static_cast<int>(std::lround(wpStats.horizonSoften * 100.0f)));
+        } else {
+            std::snprintf(valBuf, sizeof(valBuf), "[ OFF ]");
+        }
+        rows[13] = {"14. Vignette & Horizon Anti-Alias", valBuf,
+                    (wpStats.vignette > 0.01f || wpStats.horizonSoften > 0.01f)};
         const char* eyeLabel = (uieStats.eyeComfortMode == 1u) ? "[ Anti-Glare ]"
                              : (uieStats.eyeComfortMode == 2u) ? "[ Warm 5000K ]"
                              : (uieStats.eyeComfortMode == 3u) ? "[ Night 4300K ]" : "[ OFF ]";
-        rows[9]  = {"10. Eye-Care & Anti-Glare Mode", eyeLabel, uieStats.eyeComfortMode != 0u};
-        rows[10] = {"11. Hover Focus & Contrast Boost", uieStats.hoverFocusBoost ? "[ ON ]" : "[ OFF ]", uieStats.hoverFocusBoost};
-        rows[11] = {"12. Smart Hover Lupe (Hold ALT)", uieStats.hoverMagnifier ? "[ ON (+25%) ]" : "[ OFF ]", uieStats.hoverMagnifier};
-        rows[12] = {"13. OLED Auto-Dim Static HUD", uieStats.oledAutoDim ? "[ ON (72%) ]" : "[ OFF ]", uieStats.oledAutoDim};
-        rows[13] = {"14. Adjust Hovered Element Scale", "[ -5%  |  +5% ]", uieStats.hoveredTexId != 0};
-        rows[14] = {"15. Copy Hovered Hash (Ctrl+F2)", "[ COPY RULE ]", uieStats.hoveredTexId != 0};
-        rows[15] = {"16. Save All Settings to INI", "[ SAVE INI ]", true};
+        rows[14] = {"15. Eye-Care & Anti-Glare Mode", eyeLabel, uieStats.eyeComfortMode != 0u};
+        rows[15] = {"16. Hover Focus & Contrast Boost", uieStats.hoverFocusBoost ? "[ ON ]" : "[ OFF ]", uieStats.hoverFocusBoost};
+        rows[16] = {"17. Smart Hover Lupe (Hold ALT)", uieStats.hoverMagnifier ? "[ ON (+25%) ]" : "[ OFF ]", uieStats.hoverMagnifier};
+        rows[17] = {"18. OLED Auto-Dim Static HUD", uieStats.oledAutoDim ? "[ ON (72%) ]" : "[ OFF ]", uieStats.oledAutoDim};
+        rows[18] = {"19. Adjust Hovered Element Scale", "[ -5%  |  +5% ]", uieStats.hoveredTexId != 0};
+        rows[19] = {"20. Copy Hovered Hash (Ctrl+F2)", "[ COPY RULE ]", uieStats.hoveredTexId != 0};
+        rows[20] = {"21. Save All Settings to INI", "[ SAVE INI ]", true};
 
         for (int i = 0; i < kMenuRows; ++i) {
             const float ry0 = menuY + (static_cast<float>(i) + 1.2f) * rowH + 4.0f * scale;
@@ -668,18 +701,24 @@ void DebugOverlay::Render(
                         case 6: uie.CycleFontOutlineBoost(); break;
                         case 7: uie.CycleFontWeightBoost(); break;
                         case 8: uie.CycleThemeDarkSlate(); break;
-                        case 9: uie.CycleEyeComfortMode(); break;
-                        case 10: uie.ToggleHoverFocusBoost(); break;
-                        case 11: uie.ToggleHoverMagnifier(); break;
-                        case 12: uie.ToggleOledAutoDim(); break;
-                        case 13: {
+                        case 9: uie.CycleGlassmorphism(); break;
+                        case 10: uie.CycleIconPolish(); break;
+                        case 11: WorldPostFx::Instance().CycleColorProfile(); break;
+                        case 12: WorldPostFx::Instance().CycleRimSpecular(); break;
+                        case 13: WorldPostFx::Instance().CycleVignetteHorizon(); break;
+                        case 14: uie.CycleEyeComfortMode(); break;
+                        case 15: uie.ToggleHoverFocusBoost(); break;
+                        case 16: uie.ToggleHoverMagnifier(); break;
+                        case 17: uie.ToggleOledAutoDim(); break;
+                        case 18: {
                             const bool plusHalf = (mx >= menuX + menuW * 0.72f);
                             uie.AdjustHoveredElementScale(plusHalf ? +0.05f : -0.05f, config);
                             break;
                         }
-                        case 14: uie.CopyHoveredElementToClipboard(); break;
-                        case 15: {
+                        case 19: uie.CopyHoveredElementToClipboard(); break;
+                        case 20: {
                             uie.ExportCurrentStateToConfig(config);
+                            WorldPostFx::Instance().ExportCurrentStateToConfig(config);
                             config.cnnEnabled = UiSrCache::Instance().IsEnabled();
                             config.worldPostFxEnabled = WorldPostFx::Instance().IsEnabled();
                             if (config.Save()) {

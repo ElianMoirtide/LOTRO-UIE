@@ -40,10 +40,13 @@ struct UiDrawOverride {
     ID3D11PixelShader* replacementPs = nullptr;
     ID3D11GeometryShader* replacementGs = nullptr;
     ID3D11ShaderResourceView* replacementSrv0 = nullptr;
+    ID3D11ShaderResourceView* backdropSrv = nullptr;
     ID3D11SamplerState* linearSampler = nullptr;
     ID3D11Buffer* paramCb = nullptr;
     ID3D11Buffer* scaleCb = nullptr;
     ID3D11Buffer* soBuffer = nullptr;
+    uint8_t cbMask = 0;
+    bool isHoverFocus = false;
     bool active = false;
     bool isUiCandidateDraw = false;
     bool isBackbufferTarget = false;
@@ -68,6 +71,8 @@ struct UiEnhancerStats {
     float fontOutlineBoost = 0.35f;
     float fontWeightBoost = 0.25f;
     float themeDarkSlate = 0.00f;
+    float glassmorphism = 0.55f;
+    float iconPolish = 0.40f;
     uint32_t themeProfile = 0;
     uint32_t eyeComfortMode = 0;
     uint32_t lastFrameEnhancedDraws = 0;
@@ -101,6 +106,9 @@ public:
     void CycleFontWeightBoost();
     void CycleThemeDarkSlate();
     void CycleEyeComfortMode();
+    void CycleGlassmorphism();
+    void CycleIconPolish();
+    float GetGlassmorphism() const noexcept;
     uint32_t GetEyeComfortMode() const noexcept;
     bool CopyHoveredElementToClipboard(std::string* outRuleLine = nullptr);
     bool AdjustHoveredElementScale(float deltaScale, Config& ioConfig);
@@ -116,6 +124,7 @@ public:
     void OnPixelShaderDestroyed(ID3D11PixelShader* ps);
 
     bool PrepareDraw(ID3D11DeviceContext* ctx, const ContextState& st, UiDrawOverride& out, UINT drawCount = 0);
+    void AttachBackdropBlurIfNeeded(UiDrawOverride& ov);
     void SyncGpuConstants(ID3D11DeviceContext* immediateCtx);
     void OnFrameEnd(ID3D11DeviceContext* immediateCtx = nullptr, bool freezeHoverSelection = false);
 
@@ -146,8 +155,12 @@ private:
         float themeProfile;
         float eyeComfortMode;
         float hoverFocusBoost;
+        float glassmorphism;
+        float iconPolish;
+        float screenWidth;
+        float hasBackdropBlur;
     };
-    static_assert(sizeof(GpuParams) == 64, "GpuParams must be 64 bytes");
+    static_assert(sizeof(GpuParams) == 80, "GpuParams must be 80 bytes");
 
     void ApplyConfigLocked(const Config& cfg);
     void ReleaseDeviceResources();
@@ -171,6 +184,7 @@ private:
     std::atomic<bool> cbDirty_{false};
     std::atomic<uint32_t> themeProfile_{0};
     std::atomic<uint32_t> eyeComfortMode_{0};
+    std::atomic<float> glassmorphismAtomic_{0.55f};
     std::atomic<uint32_t> swapWidth_{3840};
     std::atomic<uint32_t> swapHeight_{2160};
     std::atomic<uintptr_t> swapHwnd_{0};
@@ -189,6 +203,8 @@ private:
     float fontOutlineBoost_ = 0.35f;
     float fontWeightBoost_ = 0.25f;
     float themeDarkSlate_ = 0.00f;
+    float glassmorphism_ = 0.55f;
+    float iconPolish_ = 0.40f;
     float oledDimOpacity_ = 0.72f;
     UINT hoverMagnifierKey_ = VK_MENU;
     float hoverMagnifierScale_ = 1.25f;
@@ -222,8 +238,8 @@ private:
     static constexpr size_t kMaxSoVertices = 4096;
     std::vector<HoverCandidateDraw> hoverCandidates_;
     ID3D11SamplerState* linearSamplers_[4]{}; // bit 0: wrapU, bit 1: wrapV
-    ID3D11Buffer* paramCbs_[16]{};            // bit0: wrapU, bit1: wrapV, bit2: isMap, bit3: srActive (hoverFocus=0)
-    ID3D11Buffer* hoveredParamCbs_[16]{};     // bit0: wrapU, bit1: wrapV, bit2: isMap, bit3: srActive (hoverFocus=1)
+    ID3D11Buffer* paramCbs_[32]{};            // bit0: wrapU, bit1: wrapV, bit2: isMap, bit3: srActive, bit4: hasBackdropBlur (hoverFocus=0)
+    ID3D11Buffer* hoveredParamCbs_[32]{};     // bit0: wrapU, bit1: wrapV, bit2: isMap, bit3: srActive, bit4: hasBackdropBlur (hoverFocus=1)
 
     std::unordered_map<ID3D11PixelShader*, RegisteredPs> targetShaders_;
 
